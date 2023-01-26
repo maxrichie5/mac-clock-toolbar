@@ -1,8 +1,10 @@
 package clocks
 
 import (
+	"fmt"
 	"github.com/caseymrm/menuet"
 	"log"
+	"sort"
 	"strings"
 	"time"
 )
@@ -10,18 +12,19 @@ import (
 const fmtTime = "15:04:05 MST"
 
 var (
-	zones = []string{
-		"HST", // Hawaii
-		"AST", // Alaska
-		//"UTC-08:00",
-		//"PDT",
-		//"PST",
-		//"PT",
-		"MST", // Mountain
-		"CST", // Central
-		"EST", // Eastern
-		"UTC",
-	}
+	zones = loadZones()
+	//zones = []string{
+	//	"HST", // Hawaii
+	//	"AST", // Alaska
+	//	//"UTC-08:00",
+	//	//"PDT",
+	//	//"PST",
+	//	//"PT",
+	//	"MST", // Mountain
+	//	"CST", // Central
+	//	"EST", // Eastern
+	//	"UTC",
+	//}
 )
 
 func GetActiveClocks() string {
@@ -37,6 +40,9 @@ func GetActiveClocks() string {
 		clks = append(clks, nowAtTimeZone(z).Format(fmtTime))
 	}
 
+	sort.Slice(clks, func(i, j int) bool {
+		return clks[i] < clks[j]
+	})
 	return strings.Join(clks, " ")
 }
 
@@ -49,9 +55,10 @@ func GetAllClocks() []menuet.MenuItem {
 			continue
 		}
 
+		// TODO figure out duplicate zones
 		clks = append(clks, menuet.MenuItem{
 			Type:       "",
-			Text:       t.Format(fmtTime),
+			Text:       fmt.Sprintf("%s (%s)", t.Format(fmtTime), zone),
 			Image:      "",
 			FontSize:   0,
 			FontWeight: 0,
