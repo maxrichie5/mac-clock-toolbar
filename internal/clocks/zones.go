@@ -23,7 +23,7 @@ func loadZones() ZoneList {
 	zns := make(ZoneList, 0, len(zoneFiles))
 	for _, f := range zoneFiles {
 		if f.IsDir() {
-			// TODO nested dirs
+			// TODO: nested dirs
 			subzoneFiles, err := os.ReadDir(zonesDir + string(os.PathSeparator) + f.Name())
 			errpkg.CheckFatalErr(err)
 

@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	clocks.Start()
 	go app()
 	menuet.App().RunApplication()
 	fmt.Println("Running")
@@ -15,7 +16,7 @@ func main() {
 
 func setMenuState() {
 	menuet.App().Children = func() []menuet.MenuItem {
-		return clocks.GetAllClocks()
+		return clocks.GetClocksMenu()
 	}
 	menuet.App().SetMenuState(&menuet.MenuState{
 		Title: clocks.GetActiveClocks(),

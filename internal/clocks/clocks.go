@@ -9,35 +9,37 @@ import (
 	"time"
 )
 
-const fmtTime = "15:04:05 MST"
+const timeDisplayFmt = "15:04:05 MST"
 
-var (
+var zones ZoneList
+
+type TimeAndZone struct {
+	Time time.Time
+	Zone string
+}
+
+func (tz TimeAndZone) DedupString() string {
+	return tz.Time.Format(timeDisplayFmt)
+}
+
+type GroupedTimes map[string][]TimeAndZone
+
+func Start() {
 	zones = loadZones()
-	//zones = []string{
-	//	"HST", // Hawaii
-	//	"AST", // Alaska
-	//	//"UTC-08:00",
-	//	//"PDT",
-	//	//"PST",
-	//	//"PT",
-	//	"MST", // Mountain
-	//	"CST", // Central
-	//	"EST", // Eastern
-	//	"UTC",
-	//}
-)
+}
 
 func GetActiveClocks() string {
+	now := time.Now()
 	activeZones := GetActiveTimeZones()
 	if len(activeZones) == 0 {
-		return nowAtTimeZone(time.Local.String()).Format(fmtTime)
+		return timeAtTimeZone(now, time.Local.String()).Format(timeDisplayFmt)
 	}
 
 	clks := make([]string, 0, len(activeZones))
 
 	for i := range activeZones {
 		z := activeZones[i]
-		clks = append(clks, nowAtTimeZone(z).Format(fmtTime))
+		clks = append(clks, timeAtTimeZone(now, z).Format(timeDisplayFmt))
 	}
 
 	sort.Slice(clks, func(i, j int) bool {
@@ -46,42 +48,81 @@ func GetActiveClocks() string {
 	return strings.Join(clks, " ")
 }
 
-func GetAllClocks() []menuet.MenuItem {
-	clks := make([]menuet.MenuItem, 0, 10)
+func GetClocksMenu() []menuet.MenuItem {
+	now := time.Now()
+	clks := make([]TimeAndZone, 0, 10)
 	for i := range zones {
 		zone := zones[i]
-		t := nowAtTimeZone(zone)
+		t := timeAtTimeZone(now, zone)
 		if t.IsZero() {
 			continue
 		}
 
-		// TODO figure out duplicate zones
-		clks = append(clks, menuet.MenuItem{
-			Type:       "",
-			Text:       fmt.Sprintf("%s (%s)", t.Format(fmtTime), zone),
-			Image:      "",
-			FontSize:   0,
-			FontWeight: 0,
-			State:      TimeZomeActive(zone),
-			Clicked: func() {
-				if TimeZomeActive(zone) {
-					RemoveActiveTimeZone(zone)
-				} else {
-					AddActiveTimeZone(zone)
-				}
-			},
-			Children: nil,
-		})
+		clks = append(clks, TimeAndZone{Time: t, Zone: zone})
 	}
-	return clks
+
+	dedupdClks := dedupClocks(clks)
+	menu := make([]menuet.MenuItem, 0, len(dedupdClks))
+	for _, dups := range dedupdClks {
+		menu = append(menu, groupedTimeToMenuItem(dups))
+	}
+
+	return menu
 }
 
-func nowAtTimeZone(zone string) time.Time {
+func timeAtTimeZone(t time.Time, zone string) time.Time {
 	loc, err := time.LoadLocation(zone)
 	if err != nil {
 		log.Println(err)
 		return time.Time{}
 	}
 
-	return time.Now().In(loc)
+	return t.In(loc)
+}
+
+func dedupClocks(clks []TimeAndZone) GroupedTimes {
+	dedupd := make(GroupedTimes, len(clks))
+	for _, c := range clks {
+		if _, ok := dedupd[c.DedupString()]; !ok {
+			dedupd[c.DedupString()] = make([]TimeAndZone, 0, 3)
+		}
+		dedupd[c.DedupString()] = append(dedupd[c.DedupString()], c)
+	}
+	return dedupd
+}
+
+func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
+	var childFunc func() []menuet.MenuItem
+	if len(dups) > 1 {
+		childFunc = func() []menuet.MenuItem {
+			children := make([]menuet.MenuItem, 0, len(dups))
+			for i := range dups {
+				tz := dups[i]
+				children = append(children, timeAndZoneChildToMenuItem(tz))
+			}
+			return children
+		}
+	}
+
+	// TODO: single state and single clicked
+	return menuet.MenuItem{
+		Text:     dups[0].Time.Format(timeDisplayFmt),
+		State:    false,
+		Clicked:  nil,
+		Children: childFunc,
+	}
+}
+
+func timeAndZoneChildToMenuItem(tz TimeAndZone) menuet.MenuItem {
+	return menuet.MenuItem{
+		Text:  fmt.Sprintf("%s (%s)", tz.Time.Format(timeDisplayFmt), tz.Zone),
+		State: TimeZomeActive(tz.Zone),
+		Clicked: func() {
+			if TimeZomeActive(tz.Zone) {
+				RemoveActiveTimeZone(tz.Zone)
+			} else {
+				AddActiveTimeZone(tz.Zone)
+			}
+		},
+	}
 }
