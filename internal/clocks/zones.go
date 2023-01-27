@@ -4,6 +4,7 @@ import (
 	"github.com/maxrichie5/mac-clock-toolbar/internal/errpkg"
 	"os"
 	"sort"
+	"strings"
 )
 
 type ZoneList []string
@@ -15,26 +16,16 @@ func (z ZoneList) Sort() {
 }
 
 func loadZones() ZoneList {
-	// All zones were retrieved from /opt/homebrew/Cellar/go/1.19.1/libexec/lib/time/zoneinfo.zip
-	zonesDir := "zones"
-	zoneFiles, err := os.ReadDir(zonesDir)
+	// All zones were retrieved by running `sh get-zones.sh`
+	f, err := os.ReadFile("zones.txt")
 	errpkg.CheckFatalErr(err)
 
-	zns := make(ZoneList, 0, len(zoneFiles))
-	for _, f := range zoneFiles {
-		if f.IsDir() {
-			// TODO: nested dirs
-			subzoneFiles, err := os.ReadDir(zonesDir + string(os.PathSeparator) + f.Name())
-			errpkg.CheckFatalErr(err)
-
-			for _, ff := range subzoneFiles {
-				zns = append(zns, f.Name()+string(os.PathSeparator)+ff.Name())
-			}
-		} else {
-			zns = append(zns, f.Name())
-		}
+	fs := strings.Split(string(f), "\n")
+	zns := make(ZoneList, 0, len(fs))
+	for _, z := range fs {
+		zns = append(zns, z)
 	}
 
-	zns.Sort()
+	zns.Sort() // TODO: sorting goes away on click
 	return zns
 }

@@ -3,6 +3,7 @@ package clocks
 import (
 	"fmt"
 	"github.com/caseymrm/menuet"
+	"github.com/maxrichie5/mac-clock-toolbar/internal/cfg"
 	"log"
 	"sort"
 	"strings"
@@ -30,7 +31,7 @@ func Start() {
 
 func GetActiveClocks() string {
 	now := time.Now()
-	activeZones := GetActiveTimeZones()
+	activeZones := cfg.GetActiveTimeZones()
 	if len(activeZones) == 0 {
 		return timeAtTimeZone(now, time.Local.String()).Format(timeDisplayFmt)
 	}
@@ -92,23 +93,41 @@ func dedupClocks(clks []TimeAndZone) GroupedTimes {
 }
 
 func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
-	var childFunc func() []menuet.MenuItem
-	if len(dups) > 1 {
+	var (
+		single      = len(dups) == 1
+		state       = false
+		first       = dups[0]
+		childFunc   func() []menuet.MenuItem
+		clickedFunc func()
+	)
+
+	if !single {
 		childFunc = func() []menuet.MenuItem {
 			children := make([]menuet.MenuItem, 0, len(dups))
 			for i := range dups {
 				tz := dups[i]
+				if tz.Zone == "EST" {
+					// TODO: display matching one first
+				}
 				children = append(children, timeAndZoneChildToMenuItem(tz))
 			}
 			return children
 		}
+	} else {
+		clickedFunc = func() {
+			if cfg.TimeZomeActive(first.Zone) {
+				cfg.RemoveActiveTimeZone(first.Zone)
+			} else {
+				cfg.AddActiveTimeZone(first.Zone)
+			}
+		}
+		state = cfg.TimeZomeActive(first.Zone)
 	}
 
-	// TODO: single state and single clicked
 	return menuet.MenuItem{
-		Text:     dups[0].Time.Format(timeDisplayFmt),
-		State:    false,
-		Clicked:  nil,
+		Text:     first.Time.Format(timeDisplayFmt),
+		State:    state,
+		Clicked:  clickedFunc,
 		Children: childFunc,
 	}
 }
@@ -116,12 +135,12 @@ func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
 func timeAndZoneChildToMenuItem(tz TimeAndZone) menuet.MenuItem {
 	return menuet.MenuItem{
 		Text:  fmt.Sprintf("%s (%s)", tz.Time.Format(timeDisplayFmt), tz.Zone),
-		State: TimeZomeActive(tz.Zone),
+		State: cfg.TimeZomeActive(tz.Zone),
 		Clicked: func() {
-			if TimeZomeActive(tz.Zone) {
-				RemoveActiveTimeZone(tz.Zone)
+			if cfg.TimeZomeActive(tz.Zone) {
+				cfg.RemoveActiveTimeZone(tz.Zone)
 			} else {
-				AddActiveTimeZone(tz.Zone)
+				cfg.AddActiveTimeZone(tz.Zone)
 			}
 		},
 	}
