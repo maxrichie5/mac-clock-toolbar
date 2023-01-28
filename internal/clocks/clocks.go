@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-const timeDisplayFmt = "15:04:05 MST"
+const hourSecMinZoneTimeFmt = "15:04:05 MST"
+const zoneTimeFmt = "MST"
 
 var zones ZoneList
 
@@ -20,7 +21,7 @@ type TimeAndZone struct {
 }
 
 func (tz TimeAndZone) DedupString() string {
-	return tz.Time.Format(timeDisplayFmt)
+	return tz.Time.Format(hourSecMinZoneTimeFmt)
 }
 
 type GroupedTimes map[string][]TimeAndZone
@@ -33,14 +34,14 @@ func GetActiveClocks() string {
 	now := time.Now()
 	activeZones := cfg.GetActiveTimeZones()
 	if len(activeZones) == 0 {
-		return timeAtTimeZone(now, time.Local.String()).Format(timeDisplayFmt)
+		return timeAtTimeZone(now, time.Local.String()).Format(hourSecMinZoneTimeFmt)
 	}
 
 	clks := make([]string, 0, len(activeZones))
 
 	for i := range activeZones {
 		z := activeZones[i]
-		clks = append(clks, timeAtTimeZone(now, z).Format(timeDisplayFmt))
+		clks = append(clks, timeAtTimeZone(now, z).Format(hourSecMinZoneTimeFmt))
 	}
 
 	sort.Slice(clks, func(i, j int) bool {
@@ -65,9 +66,21 @@ func GetClocksMenu() []menuet.MenuItem {
 	dedupdClks := dedupClocks(clks)
 	menu := make([]menuet.MenuItem, 0, len(dedupdClks))
 	for _, dups := range dedupdClks {
+		// display selected clocks first
+		if cfg.TimeZomeActive(dups[0].Zone) {
+			menu = append([]menuet.MenuItem{groupedTimeToMenuItem(dups)}, menu...)
+			continue
+		}
 		menu = append(menu, groupedTimeToMenuItem(dups))
 	}
 
+	// sort by formatted zone name and if active
+	sort.Slice(menu, func(i, j int) bool {
+		if menu[i].State != menu[j].State {
+			return menu[i].State
+		}
+		return strings.Split(menu[i].Text, " ")[1] < strings.Split(menu[j].Text, " ")[1]
+	})
 	return menu
 }
 
@@ -106,13 +119,16 @@ func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
 			children := make([]menuet.MenuItem, 0, len(dups))
 			for i := range dups {
 				tz := dups[i]
-				if tz.Zone == "EST" {
-					// TODO: display matching one first
+				// if the zone name matches the formatted zone name display it first
+				if tz.Zone == tz.Time.Format(zoneTimeFmt) {
+					children = append([]menuet.MenuItem{timeAndZoneChildToMenuItem(tz)}, children...)
+					continue
 				}
 				children = append(children, timeAndZoneChildToMenuItem(tz))
 			}
 			return children
 		}
+		state = anyTimeZoneIsActive(dups)
 	} else {
 		clickedFunc = func() {
 			if cfg.TimeZomeActive(first.Zone) {
@@ -125,7 +141,7 @@ func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
 	}
 
 	return menuet.MenuItem{
-		Text:     first.Time.Format(timeDisplayFmt),
+		Text:     first.Time.Format(hourSecMinZoneTimeFmt),
 		State:    state,
 		Clicked:  clickedFunc,
 		Children: childFunc,
@@ -134,7 +150,7 @@ func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
 
 func timeAndZoneChildToMenuItem(tz TimeAndZone) menuet.MenuItem {
 	return menuet.MenuItem{
-		Text:  fmt.Sprintf("%s (%s)", tz.Time.Format(timeDisplayFmt), tz.Zone),
+		Text:  fmt.Sprintf("%s (%s)", tz.Time.Format(hourSecMinZoneTimeFmt), tz.Zone),
 		State: cfg.TimeZomeActive(tz.Zone),
 		Clicked: func() {
 			if cfg.TimeZomeActive(tz.Zone) {
@@ -144,4 +160,13 @@ func timeAndZoneChildToMenuItem(tz TimeAndZone) menuet.MenuItem {
 			}
 		},
 	}
+}
+
+func anyTimeZoneIsActive(tzs []TimeAndZone) bool {
+	for _, tz := range tzs {
+		if cfg.TimeZomeActive(tz.Zone) {
+			return true
+		}
+	}
+	return false
 }

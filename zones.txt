@@ -259,7 +259,6 @@ America/Fort_Nelson
 America/Sitka
 America/Anguilla
 America/Danmarkshavn
-zones.txt
 Australia/Melbourne
 Australia/Queensland
 Australia/North
