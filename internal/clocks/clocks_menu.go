@@ -10,8 +10,12 @@ import (
 	"time"
 )
 
-const hourSecMinZoneTimeFmt = "15:04:05 MST"
-const zoneTimeFmt = "MST"
+const (
+	hourMinSecZoneTimeFmt = "15:04:05 MST"
+	hourMinZoneTimeFmt    = "15:04 MST"
+	hourZoneTimeFmt       = "15 MST"
+	zoneTimeFmt           = "MST"
+)
 
 var zones ZoneList
 
@@ -21,7 +25,7 @@ type TimeAndZone struct {
 }
 
 func (tz TimeAndZone) DedupString() string {
-	return tz.Time.Format(hourSecMinZoneTimeFmt)
+	return tz.Time.Format(hourMinSecZoneTimeFmt)
 }
 
 type GroupedTimes map[string][]TimeAndZone
@@ -34,20 +38,21 @@ func GetActiveClocks() string {
 	now := time.Now()
 	activeZones := cfg.GetActiveTimeZones()
 	if len(activeZones) == 0 {
-		return timeAtTimeZone(now, time.Local.String()).Format(hourSecMinZoneTimeFmt)
+		return timeAtTimeZone(now, time.Local.String()).Format(cfg.GetActiveTimeZoneFmt())
 	}
 
 	clks := make([]string, 0, len(activeZones))
 
 	for i := range activeZones {
 		z := activeZones[i]
-		clks = append(clks, timeAtTimeZone(now, z).Format(hourSecMinZoneTimeFmt))
+		t := timeAtTimeZone(now, z).Format(cfg.GetActiveTimeZoneFmt())
+		clks = append(clks, t)
 	}
 
 	sort.Slice(clks, func(i, j int) bool {
 		return clks[i] < clks[j]
 	})
-	return strings.Join(clks, " ")
+	return strings.Join(clks, " | ")
 }
 
 func GetClocksMenu() []menuet.MenuItem {
@@ -141,7 +146,7 @@ func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
 	}
 
 	return menuet.MenuItem{
-		Text:     first.Time.Format(hourSecMinZoneTimeFmt),
+		Text:     first.Time.Format(cfg.GetTimeZoneMenuFmt()),
 		State:    state,
 		Clicked:  clickedFunc,
 		Children: childFunc,
@@ -150,7 +155,7 @@ func groupedTimeToMenuItem(dups []TimeAndZone) menuet.MenuItem {
 
 func timeAndZoneChildToMenuItem(tz TimeAndZone) menuet.MenuItem {
 	return menuet.MenuItem{
-		Text:  fmt.Sprintf("%s (%s)", tz.Time.Format(hourSecMinZoneTimeFmt), tz.Zone),
+		Text:  fmt.Sprintf("%s (%s)", tz.Time.Format(cfg.GetTimeZoneMenuFmt()), tz.Zone),
 		State: cfg.TimeZomeActive(tz.Zone),
 		Clicked: func() {
 			if cfg.TimeZomeActive(tz.Zone) {

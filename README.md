@@ -8,9 +8,6 @@ A little utility app to choose any time zones and have them displayed in your to
 
 ## Installing 
 
-Run
-```shell
-curl github.com/maxrichie5/mac-clock-toolbar/install.sh | sh
-```
+Clone this repo then run `make`. It will create a binary for you.
 
 Then click on the clock to open the menu at hit "Start at Login".

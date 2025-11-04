@@ -2,13 +2,17 @@ package cfg
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strings"
 )
 
-type Config struct {
-	ActiveTimeZones []string
+type appConfig struct {
+	// These all need to be exported so json can unmarshal into them
+	ActiveTimeZones   []string `json:"activeTimeZones"`
+	ActiveTimeZoneFmt string   `json:"activeTimeZoneFmt"`
+	TimeZoneMenuFmt   string   `json:"timeZoneMenuFmt"`
 }
 
 var configFile = strings.Join([]string{
@@ -17,13 +21,13 @@ var configFile = strings.Join([]string{
 	"mac-clock-toolbar-settings.json",
 }, string(os.PathSeparator))
 
-var config *Config
+var config *appConfig
 
 func Start() {
 	config = initConfig()
 }
 
-func initConfig() *Config {
+func initConfig() *appConfig {
 	file, err := os.ReadFile(configFile)
 	if os.IsNotExist(err) {
 		f, err := os.Create(configFile)
@@ -31,7 +35,7 @@ func initConfig() *Config {
 			log.Fatalln(err)
 		}
 
-		c := &Config{}
+		c := &appConfig{}
 		var b []byte
 		b, err = json.Marshal(c)
 
@@ -45,69 +49,18 @@ func initConfig() *Config {
 		log.Fatalln(err)
 	}
 
-	c := &Config{}
+	c := &appConfig{}
 	err = json.Unmarshal(file, &c)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
+	fmt.Println(c)
+
 	return c
 }
 
-func AddActiveTimeZone(zone string) {
-	if !config.hasActiveTimeZone(zone) {
-		config.addActiveTimeZone(zone)
-		config.write()
-	}
-}
-
-func RemoveActiveTimeZone(zone string) {
-	if config.hasActiveTimeZone(zone) {
-		config.removeActiveTimeZone(zone)
-		config.write()
-	}
-}
-
-func TimeZomeActive(zone string) bool {
-	return config.hasActiveTimeZone(zone)
-}
-
-func GetActiveTimeZones() []string {
-	return config.ActiveTimeZones
-}
-
-func homeDir() string {
-	h, err := os.UserHomeDir()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	return h
-}
-
-func (c *Config) hasActiveTimeZone(zone string) bool {
-	for _, z := range c.ActiveTimeZones {
-		if z == zone {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *Config) addActiveTimeZone(zone string) {
-	c.ActiveTimeZones = append(c.ActiveTimeZones, zone)
-}
-
-func (c *Config) removeActiveTimeZone(zone string) {
-	t := make([]string, 0, len(c.ActiveTimeZones))
-	for _, tz := range c.ActiveTimeZones {
-		if tz != zone {
-			t = append(t, tz)
-		}
-	}
-	c.ActiveTimeZones = t
-}
-
-func (c *Config) write() {
+func (c *appConfig) write() {
 	b, err := json.Marshal(c)
 	if err != nil {
 		log.Fatalln(err)

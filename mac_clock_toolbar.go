@@ -18,7 +18,10 @@ func main() {
 
 func setMenuState() {
 	menuet.App().Children = func() []menuet.MenuItem {
-		return clocks.GetClocksMenu()
+		menu := clocks.GetClocksMenu()
+		menu = append(menu, menuet.MenuItem{Type: menuet.Separator})
+		menu = append(menu, clocks.GetSettingsMenu()...)
+		return menu
 	}
 	menuet.App().SetMenuState(&menuet.MenuState{
 		Title: clocks.GetActiveClocks(),
